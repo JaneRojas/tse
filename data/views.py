@@ -1,30 +1,31 @@
-from django.core.mail.backends import console
 from django.shortcuts import render
-from data.models import Padron_electoral, Distelec
-from django.db.models import Count
-from django.utils import timezone
-from django.views.generic.list import ListView
-from django.views.generic.detail import DetailView
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
+from django.views.generic.list import ListView
+from django.views.generic import CreateView
+from django.views.generic.detail import DetailView
+from .models import Padron_electoral, Distelec
 
 # Create your views here.
 
-#implementado listView
 class listViewData(ListView):
+    """
+    This listView is implemented in order to show the complete padron electoral.
+    """
 
     template_name = 'test.html'
     model = Padron_electoral
     paginate_by = 15  # if pagination is desired
     queryset = Padron_electoral.objects.all()
-    #context_object_name = 'data'
-    #form_class=SearchForm
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         return context
 
 class distelecListView(ListView):
+    """
+    This listView is implemented to show the complete distelec
+    """
+
     template_name = 'distelec.html'
     model = Distelec
     paginate_by = 15
@@ -34,83 +35,135 @@ class distelecListView(ListView):
         context = super().get_context_data(**kwargs)
         return context
 
-class searchDetailView(ListView):
+class searchListView(ListView):
+    """
+    This listView is implemented to search some data in padron electoral.
+    You can search a person by cedula, codelec and name.
+    """
+
     model = Padron_electoral
     template_name = 'filterData.html'
     paginate_by = 15
-    #context_object_name = 'search'
-    #queryset = Padron_electoral.objects.filter(cedula__icontains=str('207000998'))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        #context['search'] = self.search
-        #print(context, 'context')
         return context
 
     def get_queryset(self):
-        queryset = Padron_electoral.objects.all()
-        #self.search = get_object_or_404(Padron_electoral, self.kwargs['search'])
-        if self.request.GET.get('search'):
-            queryset = queryset.filter(search = self.request.GET.get('search'))
-        return queryset
-        #return Padron_electoral.objects.filter(search=self.search)
-        #return render(request, "test.html", context=context)
+        searchData = self.request.GET.get('search')
+        print(len(searchData))
+        if len(searchData) == 9:
+            queryset = Padron_electoral.objects.filter(cedula__icontains=searchData)
+            return queryset
+        if len(searchData) == 6:
+            queryset = Padron_electoral.objects.filter(codelec__icontains=searchData)
+            return queryset
+        if type(searchData) == str:
+            queryset = Padron_electoral.objects.filter(nombre__icontains=searchData)
+            return queryset
 
-    def searchData(request, self):
-        print(request.GET.get('search', ""))
-        search = request.GET.get('search', "")
-        console.log(search, 'buscado')
-        if type(search) == int:
-            data = Padron_electoral.objects.filter(codelec_icontains=str(search))
-        elif type(search) == int:
-            data = Padron_electoral.objects.filter(cedula__icontains=str(search))
-        elif type(search) == str:
-            data = Padron_electoral.objects.filter(nombre__icontains=str(search))
-        return render(request, 'filterData.html', context={'object_list':data})
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
-
+""" 
 def getInfoDistelec(request):
     info = request.GET.get('codele')
     query = Distelec.objects.filter(codele=info)
     return render(request, 'distelec.html', context={"query": query})
-
-#BUSQUEDA POR CEDULA
-#1.Mostrar la info de la persona buscada
-def searchDataP(request, search):
-    print(request.GET.get('search', ""))
-    search = request.GET.get('search', "")
-    console.log(search, 'buscado')
-    if type(search) == int:
-        data = Padron_electoral.objects.filter(codelec_icontains=str(search))
-    elif type(search) == int:
-        data = Padron_electoral.objects.filter(cedula__icontains=str(search))
-    elif type(search) == str:
-        data = Padron_electoral.objects.filter(nombre__icontains=str(search))
-    return render(request, 'filterData.html', context={'object_list':data})
-
-""""
-def getSearch(request):
-    form = forms.SearchForm()
-    if request.method == "GET":
-        form = forms.SearchForm(request.GET)
-        if form.is_valid():
-            if form.cleaned_data['search'] != '':
-                info = searchDataP(form.cleaned_data['search'])
-        return render(request, 'filter.html', {'info': info, 'searchForm': form})
-    info = searchDataP(form.cleaned_data['search'])
-    return render(request, 'filter.html', {'info': info, 'searchForm': form})
 """
 
 
-#2.Personas con su mismo CODELEC
+def get_voters_by_person(codelec):
+    """
+    This method is used in the class called info_by_person, this class is a detailView.
+    With the parameter codelec you can know the total voters with the same codelec, also number de women and men.
+    """
 
-#3. Personas con su mismo CODELEC por sexo
+    total_voters = Padron_electoral.objects.filter(Q(codelec=codelec)).count()
+    total_voters_female = Padron_electoral.objects.filter(Q(codelec=codelec)&Q(sexo=2)).count()
+    total_voters_male = Padron_electoral.objects.filter(Q(codelec=codelec) & Q(sexo=1)).count()
+    return {'total': total_voters, 'female':total_voters_female, 'male':total_voters_male}
+
+class info_by_person(DetailView):
+    """
+    This detailView provider information about each person that has been searched.
+    In this case you will see the codelec of the selected person, and with the method get_voters_by_person you will see
+    total voters, also number de women and men
+    """
+
+    model = Padron_electoral
+    template_name = 'infoByPerson.html'
+    context_object_name = 'info_person'
+
+
+    def get_context_data(self, **kwargs):
+        context = super(info_by_person,self).get_context_data(**kwargs)
+        if kwargs['object'] != None:
+            info_distelec = Distelec.objects.get(codele=kwargs['object'].codelec)
+            context['infor_distelec'] = info_distelec
+            context['voters'] = get_voters_by_person(kwargs['object'].codelec)
+            print(context)
+            return context
+
+    def get_object(self):
+        idPerson = self.kwargs.get('cedula')
+        data = Padron_electoral.objects.get(cedula=idPerson)
+        return data
+
+def get_distelec_count(codele):
+    """
+    This method is used in the class called info_by_distelec, this class is a detailView.
+    With the parameter codelec you can know the total voters with the same codelec, also number de women and men.
+    """
+
+    total_person = Padron_electoral.objects.filter(Q(codelec=codele)).count()
+    total_female = Padron_electoral.objects.filter(Q(codelec=codele) & Q(sexo=2)).count()
+    total_male = Padron_electoral.objects.filter(Q(codelec=codele) & Q(sexo=1)).count()
+    return {"total_female":total_female, 'total_male':total_male, 'total_person':total_person}
+
+
+class info_by_distelec(DetailView):
+    """
+    The detailView provider information about each row of the distelec.
+    You will see the codelec and the result of the method used called get_distelec_count
+    """
+
+    model = Distelec
+    template_name = 'infoByDistelec.html'
+    context_object_name = 'info_distelec'
+
+    def get_context_data(self, **kwargs):
+        context = super(info_by_distelec,self).get_context_data(**kwargs)
+        if kwargs['object']!=None:
+            context['info']=get_distelec_count(kwargs['object'].codele)
+            context['cod']= kwargs['object'].codele
+            print(context)
+            return context
+
+    def get_object(self):
+        codelect = self.kwargs.get('codele')
+        cod = Distelec.objects.get(codele=codelect)
+        return cod
+
+class personCreateView(CreateView):
+    template_name = 'create_person.html'
+    #form_class = PersonCreateForm
+
+    def get_initial(self, *args, **kwargs):
+        initial= super(personCreateView, self).get_initial(**kwargs)
+        initial['tittle']='my tittle'
+        return initial
 
 
 #CONSULTAS
 #1. cantidad de todos los votantes
 
 def getQuantityVoters(request):
+    """
+    This method is used for different functions, to know the quantity of people has the same fecha_caducidad cedula
+    of the president.
+    On the other hand, you will know the total voters, female and male by each province.
+    """
     #por Costa Rica
     quantity = Padron_electoral.objects.all().count()
     quantityF = Padron_electoral.objects.filter(sexo=2).count()
@@ -137,12 +190,22 @@ def getQuantityVoters(request):
     quantityL = Padron_electoral.objects.filter(Q(codelec__startswith='7')).count()
     quantityML = Padron_electoral.objects.filter(Q(codelec__startswith='7')& Q(sexo=2)).count()
     quantityHL = Padron_electoral.objects.filter(Q(codelec__startswith='7')& Q(sexo=1)).count()
+    #information from president 110600078
+    presi_id = '207000998'
+    info_presi = Padron_electoral.objects.get(cedula__iexact=presi_id)
+    fecha_caduc_presi = Padron_electoral.objects.filter(Q(fecha_caducidad__iexact='20280524')).count()
 
-    return render(request, 'generic.html', context={"quantity": quantity, "quantityFG": quantityF, "quantityMG": quantityM,
-                                                    "quantitySJ":quantitySJ, "quantityMSJ": quantityMSJ, "quantityHSJ": quantityHSJ,
-                                                    "quantityA": quantityA,"quantityMA": quantityMA,"quantityHA": quantityHA,
-                                                    "quantityC": quantityC,"quantityMC": quantityMC,"quantityHC": quantityHC,
-                                                    "quantityH": quantityH,"quantityMH": quantityMH,"quantityHH": quantityHH,
-                                                    "quantityG": quantityG,"quantityMGu": quantityMGu,"quantityHGu": quantityHGu,
-                                                    "quantityP": quantityP,"quantityMP": quantityMP,"quantityHP": quantityHP,
-                                                    "quantityL": quantityL,"quantityML": quantityML,"quantityHL": quantityHL,})
+    print(fecha_caduc_presi, "info presi")
+
+    context ={"quantity": quantity, "quantityFG": quantityF, "quantityMG": quantityM,
+              "quantitySJ":quantitySJ, "quantityMSJ": quantityMSJ, "quantityHSJ": quantityHSJ,
+              "quantityA": quantityA,"quantityMA": quantityMA,"quantityHA": quantityHA,
+              "quantityC": quantityC,"quantityMC": quantityMC,"quantityHC": quantityHC,
+              "quantityH": quantityH,"quantityMH": quantityMH,"quantityHH": quantityHH,
+              "quantityG": quantityG,"quantityMGu": quantityMGu,"quantityHGu": quantityHGu,
+              "quantityP": quantityP,"quantityMP": quantityMP,"quantityHP": quantityHP,
+              "quantityL": quantityL,"quantityML": quantityML,"quantityHL": quantityHL,
+              "fecha_caduc_presi":fecha_caduc_presi}
+
+    return render(request, 'generic.html', context)
+

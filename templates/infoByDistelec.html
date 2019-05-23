@@ -1,0 +1,12 @@
+{% extends 'navbar.html' %}
+{% block content %}
+
+    <h2>Información por Codelec</h2>
+    <hr>
+    <p><strong>Codelec: </strong>{{ cod }}</p>
+    <p><strong>Total de personas que votan: </strong>{{ info.total_person }}</p>
+    <p><strong>Total de mujeres que votan: </strong>{{ info.total_female }}</p>
+    <p><strong>Total de hombres que votan: </strong>{{ info.total_male }}</p>
+
+
+{% endblock %}

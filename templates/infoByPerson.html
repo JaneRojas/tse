@@ -1,0 +1,13 @@
+{% extends 'navbar.html' %}
+
+{% block content %}
+
+    <h2>Informacion por persona</h2>
+    <hr>
+    <p><strong>Nombre completo: </strong> {{ info_person.nombre }}{{ info_person.primer_apellido }}{{ info_person.segundo_apellido }}</p>
+    <p><strong>Cédula: </strong>{{ info_person.cedula }}</p>
+    <p><strong>Total de personas con las que vota: </strong>{{ voters.total }}</p>
+    <p><strong>Total de mujeres con las que vota: </strong>{{ voters.female }}</p>
+    <p><strong>Total de hombres con las que vota: </strong>{{ voters.male }}</p>
+
+{% endblock %}
